@@ -1,6 +1,6 @@
 ---
 name: agentic-latex
-description: Use this skill when asked to help edit or write scientific papers in LaTeX using agentic commands. Use it when \acite, \awrite, \afill, \atable, or \afigure are mentioned.
+description: Use this skill when asked to help edit or write scientific papers in LaTeX using agentic commands. Use it when \acite, \awrite, \afill, \atable, \afigure or \adiag are mentioned.
 ---
 
 # Writing and editing LaTeX papers with agentic commands
@@ -67,3 +67,20 @@ The label should be unique, short, descriptive, and always preceded by "fig:". T
 Vector formats (PDF) are always preferred over raster formats (PNG, JPG), unless it makes sense to use a raster format (e.g., for images or Mollweide figures).
 
 If you have created the figure, you should always provide instructions to reproduce it. If you need to create a script to generate the figure, you should create a simple Python script, either in the relevant project directory or in latex/figures/, that can be used to generate the figure. In either case, the information required to reproduce the figure should be included in the commented "%% To reproduce: ..." section of the figure.
+
+
+## \adiag 
+\adiag{description} - Create a diagram. The diagrams are normally made using tikz but feel free use other methods if appropriate (and change the figure environment accordingly)
+```
+\begin{figure}
+\centering  
+
+\begin{tikzpicture}[...]
+
+\end{tikzpicture}
+\caption{...}
+\label{fig:identifier}
+\end{figure}
+```
+The label should be unique, short, descriptive, and always preceded by "fig:". The caption should be a short description of the diagram. The contents of the diagram should be based on your knowledge and available context. You should also make sure that the diagram is consistent with the rest of the paper, including the abstract and introduction. If you find any inconsistencies, you should ask for further instructions. If the description is missing, it should be obvious from the context.
+
