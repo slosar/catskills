@@ -40,12 +40,15 @@ Every arXiv URL form contains the identifier; pull it out and discard the rest.
 Keep the version suffix if the user gave one — versions differ, and a claim checked
 against v1 may not be in v3. Without a suffix you get the latest version.
 
-The source URL is then `https://arxiv.org/e-print/<identifier>`. Note there is no file
-extension: what comes back is a bare blob whose type you have to sniff.
+The source URL is then `https://export.arxiv.org/e-print/<identifier>`. Use the
+`export.arxiv.org` host, not `arxiv.org`, for every programmatic request — arXiv sets it
+aside for automated access so that scripts don't load the site human readers use. Note
+there is no file extension: what comes back is a bare blob whose type you have to sniff.
 
 If the user gave only a title or author, resolve it first with the arXiv API
-(`http://export.arxiv.org/api/query?search_query=ti:"..."&max_results=5`) or a web
-search, confirm you have the right paper, then proceed.
+(`https://export.arxiv.org/api/query?search_query=ti:"..."&max_results=5`) or a web
+search, confirm you have the right paper, then proceed. The API asks for no more than one
+query every three seconds.
 
 ## Step 2 — Download and unpack
 
@@ -54,10 +57,12 @@ Use the bundled script; it handles every case below in one shot and caches into
 
 ```bash
 python3 ~/.claude/skills/read-arxiv/scripts/fetch_arxiv_source.py <url-or-id>
-# optional: --dest DIR   --mirror export.arxiv.org   --flatten /tmp/whole_paper.tex
+# optional: --dest DIR   --flatten /tmp/whole_paper.tex
 ```
 
-It prints the unpack directory, the main `.tex`, the other `.tex` files, the
+It fetches from `export.arxiv.org` and spaces requests at least one second apart, even
+across parallel invocations, so it is safe to call for several papers. It prints the
+unpack directory, the main `.tex`, the other `.tex` files, the
 bibliography, local `.sty`/`.cls`, and the figure list. `--flatten` writes a single file
 with `\input`/`\include` inlined, which is convenient for reading a paper end to end.
 
@@ -65,7 +70,7 @@ If you would rather do it by hand, the pitfalls to respect are:
 
 ```bash
 mkdir -p /tmp/arxiv/2401.12345 && cd /tmp/arxiv/2401.12345
-curl -sL -A "arxiv-source-reader" -o src https://arxiv.org/e-print/2401.12345
+curl -sL -A "arxiv-source-reader" -o src https://export.arxiv.org/e-print/2401.12345
 file src                     # decide what you actually got
 tar xzf src || gunzip -c src > main.tex
 ```
@@ -77,7 +82,7 @@ tar xzf src || gunzip -c src > main.tex
   (some authors submit PDF-only — then no source exists, and you fall back to reading
   the PDF properly, e.g. with the `pdf-reading` skill).
 - An HTML payload means an error or rate-limit page, not a paper.
-- If egress is restricted in your sandbox, `arxiv.org` may need to be allowlisted. Say
+- If egress is restricted in your sandbox, `export.arxiv.org` may need to be allowlisted. Say
   so plainly rather than silently falling back to a worse source.
 
 ## Step 3 — Orient before reading
@@ -175,10 +180,19 @@ Practical notes:
 
 ## Etiquette and limits
 
-One `/e-print/` request per paper, reuse the cached unpack, and leave a few seconds
-between papers if you're fetching several. Don't loop over large identifier lists —
-arXiv publishes bulk-access channels for that. Use `export.arxiv.org` as the host if
-`arxiv.org` rate-limits you.
+arXiv's policy for automated access: use `export.arxiv.org`, never the main
+`arxiv.org` site, and keep to at most bursts of 4 requests per second followed by a
+1-second sleep. In practice:
+
+- One `/e-print/` request per paper, and reuse the cached unpack in `/tmp/arxiv/`.
+- Fetch through the script, which enforces the host and the spacing for you. If you
+  fetch by hand with `curl`, put `sleep 1` between requests.
+- Don't fetch the `/abs/`, `/pdf/` or `/html/` pages "just to check" — the source and the
+  API cover what you need, and every extra page is load on the reader-facing site.
+- On HTTP 429 or 503, back off (the script honours `Retry-After` once and then stops);
+  don't hammer it with retries.
+- Don't loop over large identifier lists — arXiv publishes bulk-access channels (OAI-PMH,
+  the S3 bulk source) for that.
 
 Two things this workflow cannot give you: papers whose authors submitted PDF only, and
 papers withdrawn or on hold (the e-print may be a stub). In both cases say so instead of
